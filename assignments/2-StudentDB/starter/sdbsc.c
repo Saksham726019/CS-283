@@ -87,9 +87,50 @@ int get_student(int fd, int id, student_t *s){
  *            M_ERR_DB_WRITE    error writing to db file (adding student)
  *            
  */
-int add_student(int fd, int id, char *fname, char *lname, int gpa){
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+int add_student(int fd, int id, char *fname, char *lname, int gpa)
+{
+    int offset = id * sizeof(student_t);
+
+    if (lseek(fd, offset, SEEK_SET) != offset)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+
+    // Reading the location into temp.
+    student_t temp;
+    read(fd, &temp, sizeof(student_t));
+
+    // Check if the location is already taken or not
+    if (memcmp(&temp, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+    {
+        printf(M_ERR_DB_ADD_DUP, id);
+        return ERR_DB_OP;
+    }
+
+    // Create a new student record and add the corresponding fields.
+    student_t new_student;
+    new_student.id = id;                // add id.
+    strcpy(new_student.fname, fname);   // add fname.
+    strcpy(new_student.lname, lname);   // add lname.
+    new_student.gpa = gpa;              // add gpa.
+
+    // Move the file pointer back to the correct position because read() will move the file pointer ahead.
+    if (lseek(fd, offset, SEEK_SET) != offset)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+    
+    // Write the new student record to database.
+    if (write(fd, &new_student, sizeof(student_t)) != sizeof(student_t))
+    {
+        printf(M_ERR_DB_WRITE);
+        return ERR_DB_FILE;
+    }
+    
+    printf(M_STD_ADDED, id);
+    return NO_ERROR;
 }
 
 /*
@@ -143,9 +184,36 @@ int del_student(int fd, int id){
  *            M_ERR_DB_WRITE   error writing to db file (adding student)
  *            
  */
-int count_db_records(int fd){
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+int count_db_records(int fd)
+{
+    // Move the file pointer to the start.
+    if (lseek(fd, 0, SEEK_SET) == -1)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+    
+    int record_count = 0;
+    student_t student;
+
+    // Read until EOF.
+    while (read(fd, &student, sizeof(student_t)) > 0)
+    {
+        if (memcmp(&student, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+        {
+            record_count++;
+        }
+    }
+
+    if (record_count == 0)
+    {
+        printf(M_DB_EMPTY);
+        return ERR_DB_OP;
+    } else
+    {
+        printf(M_DB_RECORD_CNT, record_count);
+        return record_count;
+    }
 }
 
 /*
