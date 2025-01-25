@@ -58,8 +58,27 @@ int open_db(char *dbFile, bool should_truncate){
  * 
  *  console:  Does not produce any console I/O used by other functions
  */
-int get_student(int fd, int id, student_t *s){
-    return NOT_IMPLEMENTED_YET;
+int get_student(int fd, int id, student_t *s)
+{
+    // Move the file pointer to the location, which is the id * sizeof(student_t).
+    int offset = id * sizeof(student_t);
+    if (lseek(fd, offset, SEEK_SET) == -1)
+    {
+        return ERR_DB_FILE;
+    }
+    
+    if (read(fd, s, sizeof(student_t)) == sizeof(student_t))
+    {
+        if (memcmp(s, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+        {
+            return NO_ERROR;
+        } else
+        {
+            return SRCH_NOT_FOUND;
+        }
+    }
+
+    return ERR_DB_FILE;
 }
 
 /*
@@ -91,7 +110,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa)
 {
     int offset = id * sizeof(student_t);
 
-    if (lseek(fd, offset, SEEK_SET) != offset)
+    if (lseek(fd, offset, SEEK_SET) == -1)
     {
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
@@ -250,7 +269,22 @@ int count_db_records(int fd)
  *            M_ERR_DB_READ    error reading or seeking the database file
  *            
  */
-int print_db(int fd){
+int print_db(int fd)
+{
+    // Move the file pointer to the start.
+    if (lseek(fd, 0, SEEK_SET) == -1)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+    student_t student;
+
+    while (read(fd, &student, sizeof(student_t)) > 0)
+    {
+        
+    }
+    
+
     printf(M_NOT_IMPL);
     return NOT_IMPLEMENTED_YET;
 }
