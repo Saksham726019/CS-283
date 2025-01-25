@@ -99,15 +99,16 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa)
 
     // Reading the location into temp.
     student_t temp;
-    read(fd, &temp, sizeof(student_t));
 
-    // Check if the location is already taken or not
-    if (memcmp(&temp, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+    if (read(fd, &temp, sizeof(student_t)) == sizeof(student_t))
     {
-        printf(M_ERR_DB_ADD_DUP, id);
-        return ERR_DB_OP;
+        if (memcmp(&temp, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+        {
+            printf(M_ERR_DB_ADD_DUP, id);
+            return ERR_DB_OP;
+        }
     }
-
+        
     // Create a new student record and add the corresponding fields.
     student_t new_student;
     new_student.id = id;                // add id.
