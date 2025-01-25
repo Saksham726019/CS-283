@@ -67,8 +67,10 @@ int get_student(int fd, int id, student_t *s)
         return ERR_DB_FILE;
     }
     
+    // Read the student record into s and check if the record size is size of student_t.
     if (read(fd, s, sizeof(student_t)) == sizeof(student_t))
     {
+        // Check if it's empty student (zeroes).
         if (memcmp(s, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
         {
             return NO_ERROR;
@@ -108,19 +110,19 @@ int get_student(int fd, int id, student_t *s)
  */
 int add_student(int fd, int id, char *fname, char *lname, int gpa)
 {
+    // Move the file pointer to the location, which is the id * sizeof(student_t).
     int offset = id * sizeof(student_t);
-
     if (lseek(fd, offset, SEEK_SET) == -1)
     {
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
     }
 
-    // Reading the location into temp.
+    // Reading the location into temp and checking if the record is size of student_t.
     student_t temp;
-
     if (read(fd, &temp, sizeof(student_t)) == sizeof(student_t))
     {
+        // Check if it's empty student (zeroes).
         if (memcmp(&temp, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
         {
             printf(M_ERR_DB_ADD_DUP, id);
@@ -149,6 +151,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa)
         return ERR_DB_FILE;
     }
     
+    // Successfully added the student to the database.
     printf(M_STD_ADDED, id);
     return NO_ERROR;
 }
@@ -179,8 +182,10 @@ int del_student(int fd, int id)
 {
     student_t student;
 
+    // Get the student record in the student.
     int result = get_student(fd, id, &student);
 
+    // Print and return with corresponding errors of get_student().
     if (result == ERR_DB_FILE)
     {
         printf(M_ERR_DB_READ);
@@ -191,16 +196,17 @@ int del_student(int fd, int id)
         return ERR_DB_OP;
     }
     
-    // Student exists.
-    int offset = id * sizeof(student_t);
+    // Else, Student exists.
 
+    // Move the file pointer to the location, which is the id * sizeof(student_t).
+    int offset = id * sizeof(student_t);
     if (lseek(fd, offset, SEEK_SET) == -1)
     {
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
     }
 
-    // Write the empty student record to that location.
+    // Delete the student record by writing the empty student record to that location.
     if (write(fd, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != sizeof(student_t))
     {
         printf(M_ERR_DB_WRITE);
@@ -251,6 +257,7 @@ int count_db_records(int fd)
     // Read until EOF.
     while (read(fd, &student, sizeof(student_t)) > 0)
     {
+        // If the memory location is not empty student (zeroes), increment the record_count.
         if (memcmp(&student, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
         {
             record_count++;
@@ -312,30 +319,33 @@ int print_db(int fd)
     
     student_t student;
     bool header_printed = false;    // Variable to keep track if header is printed or not
-    ssize_t read_result;
+    ssize_t read_result;            // Variable to store the results of read() (-1, 0, or sizeof(student_t))
 
     while (1)
     {
         read_result = read(fd, &student, sizeof(student_t));
 
+        // Error while reading the database.
         if (read_result == -1)
         {
             printf(M_ERR_DB_READ);
             return ERR_DB_FILE;
         }
 
+        // Reached EOF.
         if (read_result == 0)
         {
             break;
         }
 
+        // Partially complete student record.
         if (read_result != sizeof(student_t))
         {
             printf(M_ERR_DB_READ);
             return ERR_DB_FILE;
         }
               
-        // Check if the record is all zeroes.
+        // Check if the record is all zeroes. If not, print the student record.
         if (memcmp(&student, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
         {
             if (!header_printed)
