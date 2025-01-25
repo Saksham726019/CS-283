@@ -189,28 +189,27 @@ int del_student(int fd, int id)
     {
         printf(M_STD_NOT_FND_MSG, id);
         return ERR_DB_OP;
-    } else if (result == NO_ERROR)      // Student exists.
-    {
-        int offset = id * sizeof(student_t);
-
-        if (lseek(fd, offset, SEEK_SET) == -1)
-        {
-            printf(M_ERR_DB_READ);
-            return ERR_DB_FILE;
-        }
-
-        // Write the empty student record to that location.
-        if (write(fd, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != sizeof(student_t))
-        {
-            printf(M_ERR_DB_WRITE);
-            return ERR_DB_FILE;
-        }
-        
-        // Student record successfully deleted.
-        printf(M_STD_DEL_MSG, id);
-        return NO_ERROR;
     }
     
+    // Student exists.
+    int offset = id * sizeof(student_t);
+
+    if (lseek(fd, offset, SEEK_SET) == -1)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+
+    // Write the empty student record to that location.
+    if (write(fd, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != sizeof(student_t))
+    {
+        printf(M_ERR_DB_WRITE);
+        return ERR_DB_FILE;
+    }
+    
+    // Student record successfully deleted.
+    printf(M_STD_DEL_MSG, id);
+    return NO_ERROR;
 }
 
 /*
@@ -330,7 +329,7 @@ int print_db(int fd)
             break;
         }
 
-        if (read_result < sizeof(student_t))
+        if (read_result != sizeof(student_t))
         {
             printf(M_ERR_DB_READ);
             return ERR_DB_FILE;
