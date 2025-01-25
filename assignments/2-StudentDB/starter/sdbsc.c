@@ -354,8 +354,17 @@ int print_db(int fd)
  *                             s->id is zero
  *            
  */
-void print_student(student_t *s){
-    printf(M_NOT_IMPL);
+void print_student(student_t *s)
+{
+    if (s == NULL && s->id <= 0)
+    {
+        printf(M_ERR_STD_PRINT);
+    } else
+    {
+        printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST NAME", "LAST_NAME", "GPA");
+        float calculated_gpa_from_student = s->gpa/100.0;
+        printf(STUDENT_PRINT_FMT_STRING, s->id, s->fname, s->lname, calculated_gpa_from_student);
+    }
 }
 
 /*
