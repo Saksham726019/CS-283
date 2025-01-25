@@ -277,16 +277,53 @@ int print_db(int fd)
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
     }
+    
     student_t student;
+    bool header_printed = false;    // Variable to keep track if header is printed or not
+    ssize_t read_result;
 
-    while (read(fd, &student, sizeof(student_t)) > 0)
+    while (1)
     {
-        
+        read_result = read(fd, &student, sizeof(student_t));
+
+        if (read_result == -1)
+        {
+            printf(M_ERR_DB_READ);
+            return ERR_DB_FILE;
+        }
+
+        if (read_result == 0)
+        {
+            break;
+        }
+
+        if (read_result < sizeof(student_t))
+        {
+            printf(M_ERR_DB_READ);
+            return ERR_DB_FILE;
+        }
+              
+        // Check if the record is all zeroes.
+        if (memcmp(&student, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != 0)
+        {
+            if (!header_printed)
+            {
+                printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST NAME", "LAST_NAME", "GPA");
+                header_printed = true;
+            }
+
+            float calculated_gpa_from_student = student.gpa / 100.0;
+            printf(STUDENT_PRINT_FMT_STRING, student.id, student.fname, student.lname, calculated_gpa_from_student);
+        }
+    }
+
+    // Database is empty if header was never printed.
+    if (!header_printed)
+    {
+        printf(M_DB_EMPTY);
     }
     
-
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+    return NO_ERROR;
 }
 
 /*
