@@ -175,9 +175,42 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa)
  *            M_ERR_DB_WRITE     error writing to db file (adding student)
  *            
  */
-int del_student(int fd, int id){
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+int del_student(int fd, int id)
+{
+    student_t student;
+
+    int result = get_student(fd, id, &student);
+
+    if (result == ERR_DB_FILE)
+    {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    } else if (result == SRCH_NOT_FOUND)
+    {
+        printf(M_STD_NOT_FND_MSG, id);
+        return ERR_DB_OP;
+    } else if (result == NO_ERROR)      // Student exists.
+    {
+        int offset = id * sizeof(student_t);
+
+        if (lseek(fd, offset, SEEK_SET) == -1)
+        {
+            printf(M_ERR_DB_READ);
+            return ERR_DB_FILE;
+        }
+
+        // Write the empty student record to that location.
+        if (write(fd, &EMPTY_STUDENT_RECORD, sizeof(student_t)) != sizeof(student_t))
+        {
+            printf(M_ERR_DB_WRITE);
+            return ERR_DB_FILE;
+        }
+        
+        // Student record successfully deleted.
+        printf(M_STD_DEL_MSG, id);
+        return NO_ERROR;
+    }
+    
 }
 
 /*
