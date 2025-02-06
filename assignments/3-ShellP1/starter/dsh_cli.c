@@ -46,10 +46,36 @@
  */
 int main()
 {
-    char *cmd_buff;
+    char *cmd_buff = malloc(SH_CMD_MAX);
     int rc = 0;
     command_list_t clist;
 
-    printf(M_NOT_IMPL);
-    exit(EXIT_NOT_IMPL);
+    while (1)
+    {
+        printf("%s", SH_PROMPT);
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
+        {
+            printf("\n");
+            break;
+        }
+        // remove the trailing \n from cmd_buff
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
+
+        // IMPLEMENT THE REST OF THE REQUIREMENTS
+
+        // If not user command given, continue the while loop.
+        if (strlen(cmd_buff) == 0)
+        {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
+
+        } else if (strcmp(cmd_buff, EXIT_CMD) == 0)     // If exit is given as the command, then exit the program.
+        {
+            free(cmd_buff);
+            exit(OK);
+        }
+    }
+
+    free(cmd_buff);
+    return OK;
 }
