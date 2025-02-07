@@ -74,6 +74,28 @@ int main()
             free(cmd_buff);
             exit(OK);
         }
+
+        rc = build_cmd_list(cmd_buff, &clist);
+
+        if (rc == OK)
+        {
+            printf(CMD_OK_HEADER, clist.num);
+
+            for (int i = 0; i < clist.num; i++)
+            {
+                printf("<%d> %s", i + 1, clist.commands[i].exe);
+                if (clist.commands[i].args[0] != '\0')
+                {
+                    printf(" [%s]\n", clist.commands[i].args);
+                } else
+                {
+                    printf("\n");
+                }   
+            }   
+        } else
+        {
+            printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
+        }
     }
 
     free(cmd_buff);
