@@ -32,7 +32,7 @@
  *  Standard Library Functions You Might Want To Consider Using
  *      memset(), strcmp(), strcpy(), strtok(), strlen(), strchr()
  */
-int build_cmd_list(char *cmd_line, command_list_t *clist)       // RUN THE CODE AGAIN. DOUBLE IN THE END. FIX IT.
+int build_cmd_list(char *cmd_line, command_list_t *clist)
 {
     // Initialize clist with 0 using memset().
     memset(clist, 0, sizeof(command_list_t));
@@ -42,7 +42,6 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)       // RUN THE CODE 
 
     while (token != NULL) 
     {
-        //printf("Token extracted: '%s'\n", token);
         // Check if the total number of commands exceed CMD_MAX.
         if (clist->num >= CMD_MAX)
         {
@@ -55,20 +54,17 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)       // RUN THE CODE 
             token++;
         }
 
-        //printf("Tokens after removing leading spaces: '%s'\n", token);
-
         // Get the args. Part I
         char *args = strchr(token, SPACE_CHAR);
 
         if (args != NULL)
         {
-            // If we have args, then we need to put terminator to mark it as end of exe.
+            // If we have args, then we need to put null terminator to mark it as end of exe.
             *args = '\0';
 
             // Start of args.
             args ++;
             
-            //printf("Args: '%s'\n", args);
             // Remove leading spaces in arguments.
             while (*args == SPACE_CHAR) 
             {
@@ -78,14 +74,12 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)       // RUN THE CODE 
             // Remove trailing spaces in arguments.
             int k = 1;
             int args_len = strlen(args);
-            //printf("\nargs len: %d\n", args_len);
+
             while (args_len - k >= 0 && args[args_len - k] == SPACE_CHAR)
             {
                 args[args_len - k] = '\0';
                 k++;
             }
-
-            //printf("Args after removing leading and trailing spaces: '%s'\n\n", args);
 
             // Check if arguments length is too big.
             if (strlen(args) >= ARG_MAX) 
@@ -98,7 +92,6 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)       // RUN THE CODE 
 
         } else if (args == NULL)
         {
-            //printf("args is empty\n");
             clist->commands[clist->num].args[0] = '\0';
         }
 
