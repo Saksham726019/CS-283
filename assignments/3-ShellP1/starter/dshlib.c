@@ -90,7 +90,7 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
             // Copy args to args.
             strcpy(clist->commands[clist->num].args, args);
 
-        } else if (args == NULL)
+        } else
         {
             clist->commands[clist->num].args[0] = '\0';
         }
