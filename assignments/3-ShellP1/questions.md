@@ -1,15 +1,15 @@
 1. In this assignment I suggested you use `fgets()` to get user input in the main while loop. Why is `fgets()` a good choice for this application?
 
-    > **Answer**:  _start here_
+    > **Answer**:  fgets() is a good choice because it can handle inputs with spaces and only stops when it detects newline \n or EOF. Especially in the test cases in test.sh, EOF is used to indicate end of list of commands passed to the program.
 
 2. You needed to use `malloc()` to allocte memory for `cmd_buff` in `dsh_cli.c`. Can you explain why you needed to do that, instead of allocating a fixed-size array?
 
-    > **Answer**:  _start here_
+    > **Answer**: Using malloc was more helpful 
 
 
 3. In `dshlib.c`, the function `build_cmd_list(`)` must trim leading and trailing spaces from each command before storing it. Why is this necessary? If we didn't trim spaces, what kind of issues might arise when executing commands in our shell?
 
-    > **Answer**:  _start here_
+    > **Answer**:  Trimming spaces is necessary because we don't want the shell to think space is also a command, which could cause incorrect execution. For example, if 'cmd1' is supposed to execute something. But when programming the use of 'cmd1', we did not remove leading and trailing spaces. That would mean, we need to input ' cmd' to shell, which is incorrect.
 
 4. For this question you need to do some research on STDIN, STDOUT, and STDERR in Linux. We've learned this week that shells are "robust brokers of input and output". Google _"linux shell stdin stdout stderr explained"_ to get started.
 
