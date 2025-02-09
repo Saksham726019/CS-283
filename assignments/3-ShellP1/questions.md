@@ -4,7 +4,7 @@
 
 2. You needed to use `malloc()` to allocte memory for `cmd_buff` in `dsh_cli.c`. Can you explain why you needed to do that, instead of allocating a fixed-size array?
 
-    > **Answer**: Using malloc was more helpful 
+    > **Answer**: Using malloc was more helpful as it allows for more flexible and dynamic memory management rather than relying on a fixed stack memory. For example, we could reallocate memory in order to allow more input, but if we used stack memory for cmd_buffer, it doesn't allow much felxibility.
 
 
 3. In `dshlib.c`, the function `build_cmd_list(`)` must trim leading and trailing spaces from each command before storing it. Why is this necessary? If we didn't trim spaces, what kind of issues might arise when executing commands in our shell?
@@ -15,16 +15,21 @@
 
 - One topic you should have found information on is "redirection". Please provide at least 3 redirection examples that we should implement in our custom shell, and explain what challenges we might have implementing them.
 
-    > **Answer**:  _start here_
+    > **Answer**: The three redirecitions:
+    * Input redirection (<): Takes input from a file instead of the keyboard.
+    * Output redirection (>) or (>>): Redirects the output to a file instead of the window or screen.
+    * Error redirection (2>) or (2>>): Sends error messages (STDERR) to a file instead of displaying them on the screen.
+
+    The challenges we might have are overwriting the existing file. Thus, we need to be careful and use >> for appending. Moreover, we also need to careful about file permissions as read only file can't be used for output redirection.
 
 - You should have also learned about "pipes". Redirection and piping both involve controlling input and output in the shell, but they serve different purposes. Explain the key differences between redirection and piping.
 
-    > **Answer**:  _start here_
+    > **Answer**:  Redirection sends input, output, or errors to or from a file. Piping connects the output of one command directly to the input of another without using files.
 
 - STDERR is often used for error messages, while STDOUT is for regular output. Why is it important to keep these separate in a shell?
 
-    > **Answer**:  _start here_
+    > **Answer**: It is important to keep STDOUT and STDERR separate in a shell because it will help keep things clean as it will separate the output of the program from the error of the program, which allows for easness in debugging.
 
 - How should our custom shell handle errors from commands that fail? Consider cases where a command outputs both STDOUT and STDERR. Should we provide a way to merge them, and if so, how?
 
-    > **Answer**:  _start here_
+    > **Answer**: Our shell should handle if a command fails by the use of the exit status. We can provide a way to merge both STDOUT and STDERR by using 1> for STDOUT and 2> for STDERR. 
