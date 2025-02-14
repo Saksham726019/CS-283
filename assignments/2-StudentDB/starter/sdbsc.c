@@ -350,7 +350,7 @@ int print_db(int fd)
         {
             if (!header_printed)
             {
-                printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST NAME", "LAST_NAME", "GPA");
+                printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST_NAME", "LAST_NAME", "GPA");
                 header_printed = true;
             }
 
