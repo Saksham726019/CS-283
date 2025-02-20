@@ -90,9 +90,10 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
     return OK;
 }
 
+
 int exec_cmd(cmd_buff_t *cmd)
 {
-    pid_t pid = fork();
+    int pid = fork();
 
     if (pid < 0)
     {
