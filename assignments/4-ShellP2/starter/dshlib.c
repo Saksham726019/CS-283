@@ -188,6 +188,8 @@ int exec_local_cmd_loop()
                     continue;
                 }
             }
+
+            continue;
         }
 
         rc = build_cmd_buff(cmd_buff, &cmd);
