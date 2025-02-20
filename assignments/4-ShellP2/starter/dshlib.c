@@ -9,6 +9,8 @@
 #include "dshlib.h"
 
 
+// NEED TO IMPLEMENT THE built-in AND extern command stuff. More test cases in student_tests.sh
+
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
 {
     // Initialize clist with 0 using memset().
@@ -88,6 +90,30 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
     return OK;
 }
 
+int exec_cmd(cmd_buff_t *cmd)
+{
+    pid_t pid = fork();
+
+    if (pid < 0)
+    {
+        printf("fork failed\n");
+        return ERR_MEMORY;
+    }
+    else if (pid == 0)
+    {
+        execvp(cmd->argv[0], cmd->argv);
+        printf("command not found: %s\n", cmd->argv[0]);
+        exit(ERR_EXEC_CMD);
+    }
+    else
+    {
+        int status;
+        waitpid(pid, &status, 0);
+        return WEXITSTATUS(status);
+    }
+}
+
+
 /*
  * Implement your exec_local_cmd_loop function by building a loop that prompts the 
  * user for input.  Use the SH_PROMPT constant from dshlib.h and then
@@ -163,8 +189,7 @@ int exec_local_cmd_loop()
 
         if (strncmp(cmd_buff, "cd", 2) == 0 && (cmd_buff[2] == '\0' || cmd_buff[2] == ' '))
         {
-            char* token = strtok(cmd_buff, " ");     // token == cd
-
+            strtok(cmd_buff, " ");
             char* arg = strtok(NULL, " ");
 
             // do nothing if no args passed for cd.
@@ -196,13 +221,8 @@ int exec_local_cmd_loop()
 
         if (rc == OK)
         {
-            printf(CMD_OK_HEADER, cmd.argc);
-
-            for (int i = 0; i < cmd.argc; i++)
-            {
-                printf("<%d> %s\n", i + 1, cmd.argv[i]);
-            }
-
+            exec_cmd(&cmd);
+            
         } else if (rc == WARN_NO_CMDS)
         {
             printf(CMD_WARN_NO_CMD);
