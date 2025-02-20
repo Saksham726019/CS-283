@@ -32,11 +32,18 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
             cmd_line++;
         }
 
-        // If we reach null terminator, then only spaces were given in the command.
+        // If we reach null terminator, and if arg_count is 0, then only spaces were given in the command.
         if (*cmd_line == '\0')
         {
-            free(cmd_buff->_cmd_buffer);
-            return WARN_NO_CMDS;
+            if (arg_count > 0)
+            {
+                break;
+            } else
+            {
+                free(cmd_buff->_cmd_buffer);
+                return WARN_NO_CMDS;    
+            }
+            
         }
 
         if (*cmd_line == QUOTES)
@@ -56,6 +63,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
             if (*cmd_line == QUOTES)
             {
                 inside_quotes = !inside_quotes;
+                *cmd_line = '\0';
             }
             cmd_line++;
         }
@@ -68,7 +76,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
         }
 
         // Terminate the program is arg_count or arg length is max.
-        if (strlen(cmd_buff->argv[arg_count - 1]) > ARG_MAX || arg_count >= CMD_ARGV_MAX)
+        if (arg_count > 0 && (strlen(cmd_buff->argv[arg_count - 1]) >= ARG_MAX || arg_count >= CMD_ARGV_MAX))
         {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }        
