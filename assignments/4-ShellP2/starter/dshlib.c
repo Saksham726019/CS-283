@@ -8,23 +8,83 @@
 #include <sys/wait.h>
 #include "dshlib.h"
 
+
+int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
+{
+    // Initialize clist with 0 using memset().
+    memset(cmd_buff, 0, sizeof(cmd_buff_t));
+
+    // Store the copy of the cmd buffer into _cmd_buff.
+    cmd_buff->_cmd_buffer = strdup(cmd_line);
+    if (!cmd_buff->_cmd_buffer) 
+    {
+        return ERR_MEMORY;
+    }
+
+    bool inside_quotes = false;
+    int arg_count = 0;
+
+    while (*cmd_line) 
+    {
+        // Skip leading spaces until we hit a quote.
+        while (*cmd_line == SPACE_CHAR && !inside_quotes)
+        {
+            cmd_line++;
+        }
+
+        // If we reach null terminator, then only spaces were given in the command.
+        if (*cmd_line == '\0')
+        {
+            free(cmd_buff->_cmd_buffer);
+            return WARN_NO_CMDS;
+        }
+
+        if (*cmd_line == QUOTES)
+        {
+            inside_quotes = !inside_quotes;
+            cmd_line++;
+        }
+
+        // Store the pointer to the first char of the argument.
+        cmd_buff->argv[arg_count] = cmd_line;
+        arg_count++;
+
+        // If not inside quotes, we stop iterating once we hit a space.
+        // If inside quotes, we won't stop on space, but stop once we hit the second quotes.
+        while (*cmd_line && (*cmd_line != SPACE_CHAR || inside_quotes))
+        {
+            if (*cmd_line == QUOTES)
+            {
+                inside_quotes = !inside_quotes;
+            }
+            cmd_line++;
+        }
+        
+        // Null terminate the argument.
+        if (*cmd_line == SPACE_CHAR)
+        {
+            *cmd_line = '\0';
+            cmd_line++;
+        }
+
+        // Terminate the program is arg_count or arg length is max.
+        if (strlen(cmd_buff->argv[arg_count - 1]) > ARG_MAX || arg_count >= CMD_ARGV_MAX)
+        {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }        
+    }
+
+    cmd_buff->argc = arg_count;
+    cmd_buff->argv[arg_count] = NULL;
+
+    return OK;
+}
+
 /*
  * Implement your exec_local_cmd_loop function by building a loop that prompts the 
  * user for input.  Use the SH_PROMPT constant from dshlib.h and then
  * use fgets to accept user input.
- * 
- *      while(1){
- *        printf("%s", SH_PROMPT);
- *        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL){
- *           printf("\n");
- *           break;
- *        }
- *        //remove the trailing \n from cmd_buff
- *        cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
- * 
- *        //IMPLEMENT THE REST OF THE REQUIREMENTS
- *      }
- * 
+ *  
  *   Also, use the constants in the dshlib.h in this code.  
  *      SH_CMD_MAX              maximum buffer size for user input
  *      EXIT_CMD                constant that terminates the dsh program
@@ -51,21 +111,98 @@
  *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
  *      fork(), execvp(), exit(), chdir()
  */
+
+// TODO IMPLEMENT MAIN LOOP
+
+// TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
+
+// TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
+// the cd command should chdir to the provided directory; if no directory is provided, do nothing
+
+// TODO IMPLEMENT if not built-in command, fork/exec as an external command
+// for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
+
 int exec_local_cmd_loop()
 {
-    char *cmd_buff;
+    char *cmd_buff = malloc(SH_CMD_MAX);
     int rc = 0;
     cmd_buff_t cmd;
 
-    // TODO IMPLEMENT MAIN LOOP
+    while (1)
+    {
+        printf("%s", SH_PROMPT);
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
+        {
+            printf("\n");
+            break;
+        }
+        // remove the trailing \n from cmd_buff
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
-    // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
+        // IMPLEMENT THE REST OF THE REQUIREMENTS
 
-    // TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
-    // the cd command should chdir to the provided directory; if no directory is provided, do nothing
+        // If not user command given, continue the while loop.
+        if (strlen(cmd_buff) == 0)
+        {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
 
-    // TODO IMPLEMENT if not built-in command, fork/exec as an external command
-    // for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
+        } else if (strcmp(cmd_buff, EXIT_CMD) == 0)     // If exit is given as the command, then exit the program.
+        {
+            free(cmd_buff);
+            exit(OK);
+        }
 
+        if (strncmp(cmd_buff, "cd", 2) == 0 && (cmd_buff[2] == '\0' || cmd_buff[2] == ' '))
+        {
+            char* token = strtok(cmd_buff, " ");     // token == cd
+
+            char* arg = strtok(NULL, " ");
+
+            // do nothing if no args passed for cd.
+            if (arg == NULL)
+            {
+                continue;
+            } else
+            {
+                // cd can only handle one argument. So, check if there is more than one argument.
+                char* extraArgs = strtok(NULL, " ");
+
+                if (extraArgs != NULL)
+                {
+                    printf("cd: error too many arguments!");
+                    return ERR_TOO_MANY_COMMANDS;
+                }
+                
+                if (chdir(arg) != 0)
+                {
+                    printf(CMD_ERR_EXECUTE);
+                    continue;
+                }
+            }
+        }
+
+        rc = build_cmd_buff(cmd_buff, &cmd);
+
+        if (rc == OK)
+        {
+            printf(CMD_OK_HEADER, cmd.argc);
+
+            for (int i = 0; i < cmd.argc; i++)
+            {
+                printf("<%d> %s\n", i + 1, cmd.argv[i]);
+            }
+
+        } else if (rc == WARN_NO_CMDS)
+        {
+            printf(CMD_WARN_NO_CMD);
+
+        } else
+        {
+            printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
+        }
+    }
+
+    free(cmd_buff);
     return OK;
 }

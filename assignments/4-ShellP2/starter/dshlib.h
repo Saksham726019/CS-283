@@ -32,6 +32,7 @@ typedef struct command{
 #define SPACE_CHAR  ' '
 #define PIPE_CHAR   '|'
 #define PIPE_STRING "|"
+#define QUOTES '"'
 
 #define SH_PROMPT "dsh2> "
 #define EXIT_CMD "exit"
@@ -75,5 +76,6 @@ int exec_cmd(cmd_buff_t *cmd);
 #define CMD_OK_HEADER       "PARSED COMMAND LINE - TOTAL COMMANDS %d\n"
 #define CMD_WARN_NO_CMD     "warning: no commands provided\n"
 #define CMD_ERR_PIPE_LIMIT  "error: piping limited to %d commands\n"
+#define CMD_ERR_EXECUTE     "error: command failed\n"
 
 #endif
