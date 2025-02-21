@@ -11,7 +11,7 @@
 
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
 {
-    // Initialize clist with 0 using memset().
+    // Initialize cmd_buff with 0 using memset().
     memset(cmd_buff, 0, sizeof(cmd_buff_t));
 
     // Store the copy of the cmd buffer into _cmd_buff.
