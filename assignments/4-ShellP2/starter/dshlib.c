@@ -9,8 +9,6 @@
 #include "dshlib.h"
 
 
-// NEED TO IMPLEMENT THE built-in AND extern command stuff. More test cases in student_tests.sh
-
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
 {
     // Initialize clist with 0 using memset().
@@ -58,6 +56,13 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
         cmd_buff->argv[arg_count] = cmd_line;
         arg_count++;
 
+        // Terminate the program is arg_count or arg length is max.
+        if (arg_count > 0 && (strlen(cmd_buff->argv[arg_count - 1]) >= ARG_MAX || arg_count >= CMD_ARGV_MAX))
+        {
+            free(cmd_buff->_cmd_buffer);
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }  
+
         // If not inside quotes, we stop iterating once we hit a space.
         // If inside quotes, we won't stop on space, but stop once we hit the second quotes.
         while (*cmd_line && (*cmd_line != SPACE_CHAR || inside_quotes))
@@ -75,13 +80,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
         {
             *cmd_line = '\0';
             cmd_line++;
-        }
-
-        // Terminate the program is arg_count or arg length is max.
-        if (arg_count > 0 && (strlen(cmd_buff->argv[arg_count - 1]) >= ARG_MAX || arg_count >= CMD_ARGV_MAX))
-        {
-            return ERR_CMD_OR_ARGS_TOO_BIG;
-        }        
+        }      
     }
 
     cmd_buff->argc = arg_count;
