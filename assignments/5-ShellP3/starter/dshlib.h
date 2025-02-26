@@ -42,6 +42,7 @@ typedef struct command_list{
 #define SPACE_CHAR  ' '
 #define PIPE_CHAR   '|'
 #define PIPE_STRING "|"
+#define QUOTES '"'
 
 #define SH_PROMPT "dsh3> "
 #define EXIT_CMD "exit"
