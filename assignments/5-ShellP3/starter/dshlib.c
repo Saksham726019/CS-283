@@ -220,12 +220,12 @@ int execute_pipeline(command_list_t *clist)
         }
     }
 
-    // Wait for all child processes.
+    // Wait for all child processes and store each status in the status_array.
     for (int i = 0; i < clist->num; i++)
     {
         waitpid(pids[i], &status, 0);
     }
-
+    
     return WEXITSTATUS(status);
 }
 
