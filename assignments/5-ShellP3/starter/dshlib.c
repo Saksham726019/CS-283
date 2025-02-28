@@ -145,6 +145,91 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
 }
 
 
+int execute_pipeline(command_list_t *clist)
+{
+    int pipefd[2];              // Array to store pipes, where pipefd[0] = read end, pipefd[1] = write end
+    pid_t pids[clist->num];     // Array to store process IDs
+    int prev_pipe_fd = -1;
+    int status;
+
+    for (int i = 0; i < clist->num; i++)
+    {
+        // Create pipe for each command except the last one because there is no command after the last one to pipe the output to.
+        if (i < clist->num - 1)
+        {
+            if (pipe(pipefd) < 0)
+            {
+                perror("pipe");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // Fork a child process.
+        pids[i] = fork();
+        if (pids[i] < 0)
+        {
+            perror("fork");
+            exit(EXIT_FAILURE);
+
+        } else if (pids[i] == 0)    // Child process
+        {
+            // If i>0, then there was a command beore this.
+            // We will make STDIN read from the previous_pipe_fd.
+            if (i > 0)
+            {
+                dup2(prev_pipe_fd, STDIN_FILENO);
+            }
+
+            // If we are not in the last command, we will make STDOUT write to the current pipe.
+            if (i < clist->num - 1)
+            {
+                dup2(pipefd[1], STDOUT_FILENO);
+            }
+
+            // Close unused descriptors.
+            if (i > 0)
+            {
+                close(prev_pipe_fd);
+            }
+
+            // Close all pipe ends in child.
+            if (i < clist->num - 1)
+            {
+                close(pipefd[0]);
+                close(pipefd[1]);
+            }
+
+            // Execute the command.
+            execvp(clist->commands[i].argv[0], clist->commands[i].argv);
+            perror("execvp");
+            exit(EXIT_FAILURE);
+
+        } else  // Parent process
+        {
+            // Close the previous pipe.
+            if (i > 0)
+            {
+                close(prev_pipe_fd);
+            }
+            // If it's not the last command, update the prev_pipe_fd and close the write end.
+            if (i < clist->num - 1)
+            {
+                prev_pipe_fd = pipefd[0];
+                close(pipefd[1]);
+            }
+        }
+    }
+
+    // Wait for all child processes.
+    for (int i = 0; i < clist->num; i++)
+    {
+        waitpid(pids[i], &status, 0);
+    }
+
+    return WEXITSTATUS(status);
+}
+
+
 /*
  * Implement your exec_local_cmd_loop function by building a loop that prompts the 
  * user for input.  Use the SH_PROMPT constant from dshlib.h and then
@@ -192,7 +277,6 @@ int exec_local_cmd_loop()
 {
     char *cmd_buff = malloc(SH_CMD_MAX);
     int rc = 0;
-    cmd_buff_t cmd;
     command_list_t clist;
 
     while (1)
@@ -253,19 +337,7 @@ int exec_local_cmd_loop()
 
         if (rc == OK)
         {
-            printf(CMD_OK_HEADER, clist.num);
-
-            for (int i = 0; i < clist.num; i++)
-            {
-                printf("<%d> ", i + 1);
-                for (int j = 0; j < clist.commands[i].argc; j++)
-                {
-                    printf("%s ", clist.commands[i].argv[j]);
-                }
-                printf("\n");
-                // Free the dynamically allocated _cmd_buffer for each command.
-                free(clist.commands[i]._cmd_buffer);
-            }
+            execute_pipeline(&clist);
 
         } else
         {
@@ -274,7 +346,7 @@ int exec_local_cmd_loop()
                 printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
             } else if (rc == ERR_CMD_OR_ARGS_TOO_BIG)
             {
-                printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
+                printf("error: command or arguments too big\n");
             } else if (rc == WARN_NO_CMDS)
             {
                 printf(CMD_WARN_NO_CMD);
