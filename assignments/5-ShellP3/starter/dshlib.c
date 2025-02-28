@@ -301,7 +301,8 @@ int exec_local_cmd_loop()
         } else if (strcmp(cmd_buff, EXIT_CMD) == 0)     // If exit is given as the command, then exit the program.
         {
             free(cmd_buff);
-            exit(OK);
+            printf("exiting...\n");
+            return OK;
         }
 
         if (strncmp(cmd_buff, "cd", 2) == 0 && (cmd_buff[2] == '\0' || cmd_buff[2] == ' '))
@@ -346,7 +347,7 @@ int exec_local_cmd_loop()
                 printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
             } else if (rc == ERR_CMD_OR_ARGS_TOO_BIG)
             {
-                printf("error: command or arguments too big\n");
+                printf(CMD_ERR_CMD_OR_ARGS_TOO_BIG);
             } else if (rc == WARN_NO_CMDS)
             {
                 printf(CMD_WARN_NO_CMD);
