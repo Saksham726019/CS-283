@@ -194,3 +194,39 @@ EOF
     [ "$stripped_output" = "$expected_output" ]
     [ "$status" -eq 0 ]
 }
+
+@test "Piping with no spaces between piped commands" {
+    run "./dsh" <<EOF
+ls|wc -l
+EOF
+
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="^[0-9]+dsh3>dsh3>cmdloopreturned0$"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "Exit Status: $status"
+
+    [[ "$stripped_output" =~ $expected_output ]]
+
+    [ "$status" -eq 0 ]
+}
+
+@test "Piping with leading and trailing spaces" {
+    run "./dsh" <<EOF
+    ls   |   wc -l    
+EOF
+
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="^[0-9]+dsh3>dsh3>cmdloopreturned0$"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "Exit Status: $status"
+
+    [[ "$stripped_output" =~ $expected_output ]]
+
+    [ "$status" -eq 0 ]
+}
