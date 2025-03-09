@@ -19,6 +19,95 @@
 
 
 /*
+ * boot_server(ifaces, port)
+ *      ifaces & port:  see start_server for description.  They are passed
+ *                      as is to this function.   
+ * 
+ *      This function "boots" the rsh server.  It is responsible for all
+ *      socket operations prior to accepting client connections.  Specifically: 
+ * 
+ *      1. Create the server socket using the socket() function. 
+ *      2. Calling bind to "bind" the server to the interface and port
+ *      3. Calling listen to get the server ready to listen for connections.
+ * 
+ *      after creating the socket and prior to calling bind you might want to 
+ *      include the following code:
+ * 
+ *      int enable=1;
+ *      setsockopt(svr_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+ * 
+ *      when doing development you often run into issues where you hold onto
+ *      the port and then need to wait for linux to detect this issue and free
+ *      the port up.  The code above tells linux to force allowing this process
+ *      to use the specified port making your life a lot easier.
+ * 
+ *  Returns:
+ * 
+ *      server_socket:  Sockets are just file descriptors, if this function is
+ *                      successful, it returns the server socket descriptor, 
+ *                      which is just an integer.
+ * 
+ *      ERR_RDSH_COMMUNICATION:  This error code is returned if the socket(),
+ *                               bind(), or listen() call fails. 
+ * 
+ */
+int boot_server(char *ifaces, int port){
+    int svr_socket;
+    int ret;
+    
+    struct sockaddr_in addr;
+
+    // TODO set up the socket - this is very similar to the demo code
+
+    // Create socket.
+    svr_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (svr_socket == -1)
+    {
+        perror("socket");
+        close(svr_socket);
+        return ERR_RDSH_COMMUNICATION;
+    }
+
+    int enable=1;
+    setsockopt(svr_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+
+    /* Bind socket to socket name. */
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(ifaces);
+    addr.sin_port = htons(port);
+    
+    ret = bind(svr_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+
+    if (ret == -1)
+    {
+        perror("accept");
+        close(svr_socket);
+        return ERR_RDSH_COMMUNICATION;
+    }
+
+    /*
+     * Prepare for accepting connections. The backlog size is set
+     * to 20. So while one request is being processed other requests
+     * can be waiting.
+     */
+    ret = listen(svr_socket, 20);
+    if (ret == -1) 
+    {
+        perror("listen");
+        close(svr_socket);
+        return ERR_RDSH_COMMUNICATION;
+    }
+
+    // For debugging. Remove later.
+    printf("Server booted successfully on %s:%d\n", ifaces, port);
+
+    return svr_socket;
+}
+
+
+/*
  * start_server(ifaces, port, is_threaded)
  *      ifaces:  a string in ip address format, indicating the interface
  *              where the server will bind.  In almost all cases it will
@@ -81,60 +170,6 @@ int stop_server(int svr_socket){
     return close(svr_socket);
 }
 
-/*
- * boot_server(ifaces, port)
- *      ifaces & port:  see start_server for description.  They are passed
- *                      as is to this function.   
- * 
- *      This function "boots" the rsh server.  It is responsible for all
- *      socket operations prior to accepting client connections.  Specifically: 
- * 
- *      1. Create the server socket using the socket() function. 
- *      2. Calling bind to "bind" the server to the interface and port
- *      3. Calling listen to get the server ready to listen for connections.
- * 
- *      after creating the socket and prior to calling bind you might want to 
- *      include the following code:
- * 
- *      int enable=1;
- *      setsockopt(svr_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
- * 
- *      when doing development you often run into issues where you hold onto
- *      the port and then need to wait for linux to detect this issue and free
- *      the port up.  The code above tells linux to force allowing this process
- *      to use the specified port making your life a lot easier.
- * 
- *  Returns:
- * 
- *      server_socket:  Sockets are just file descriptors, if this function is
- *                      successful, it returns the server socket descriptor, 
- *                      which is just an integer.
- * 
- *      ERR_RDSH_COMMUNICATION:  This error code is returned if the socket(),
- *                               bind(), or listen() call fails. 
- * 
- */
-int boot_server(char *ifaces, int port){
-    int svr_socket;
-    int ret;
-    
-    struct sockaddr_in addr;
-
-    // TODO set up the socket - this is very similar to the demo code
-
-    /*
-     * Prepare for accepting connections. The backlog size is set
-     * to 20. So while one request is being processed other requests
-     * can be waiting.
-     */
-    ret = listen(svr_socket, 20);
-    if (ret == -1) {
-        perror("listen");
-        return ERR_RDSH_COMMUNICATION;
-    }
-
-    return svr_socket;
-}
 
 /*
  * process_cli_requests(svr_socket)
