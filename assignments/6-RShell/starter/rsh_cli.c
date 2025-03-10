@@ -151,8 +151,33 @@ int start_client(char *server_ip, int port){
     int ret;
 
     // TODO set up cli_socket
+    cli_socket = socket(AF_INET, SOCK_STREAM, 0);
 
+    if (cli_socket == -1)
+    {
+        perror("socket");
+        return ERR_RDSH_COMMUNICATION;
+    }
 
+    // Connect socket to socket address.
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(server_ip);
+
+    // Connect to server.
+    ret = connect(cli_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+
+    if (ret == -1)
+    {
+        fprintf(stderr, "The server is down.\n");
+        close(cli_socket);
+        return ERR_RDSH_CLIENT;
+    }
+
+    // For debugging. Remove later.
+    printf("Connected to server at %s:%d\n", server_ip, port);
+    
     return cli_socket;
 }
 
