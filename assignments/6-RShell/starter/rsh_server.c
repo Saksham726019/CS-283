@@ -106,58 +106,6 @@ int boot_server(char *ifaces, int port){
     return svr_socket;
 }
 
-
-/*
- * start_server(ifaces, port, is_threaded)
- *      ifaces:  a string in ip address format, indicating the interface
- *              where the server will bind.  In almost all cases it will
- *              be the default "0.0.0.0" which binds to all interfaces.
- *              note the constant RDSH_DEF_SVR_INTFACE in rshlib.h
- * 
- *      port:   The port the server will use.  Note the constant 
- *              RDSH_DEF_PORT which is 1234 in rshlib.h.  If you are using
- *              tux you may need to change this to your own default, or even
- *              better use the command line override -s implemented in dsh_cli.c
- *              For example ./dsh -s 0.0.0.0:5678 where 5678 is the new port  
- * 
- *      is_threded:  Used for extra credit to indicate the server should implement
- *                   per thread connections for clients  
- * 
- *      This function basically runs the server by: 
- *          1. Booting up the server
- *          2. Processing client requests until the client requests the
- *             server to stop by running the `stop-server` command
- *          3. Stopping the server. 
- * 
- *      This function is fully implemented for you and should not require
- *      any changes for basic functionality.  
- * 
- *      IF YOU IMPLEMENT THE MULTI-THREADED SERVER FOR EXTRA CREDIT YOU NEED
- *      TO DO SOMETHING WITH THE is_threaded ARGUMENT HOWEVER.  
- */
-int start_server(char *ifaces, int port, int is_threaded){
-    int svr_socket;
-    int rc;
-
-    //
-    //TODO:  If you are implementing the extra credit, please add logic
-    //       to keep track of is_threaded to handle this feature
-    //
-
-    svr_socket = boot_server(ifaces, port);
-    if (svr_socket < 0){
-        int err_code = svr_socket;  //server socket will carry error code
-        return err_code;
-    }
-
-    rc = process_cli_requests(svr_socket);
-
-    stop_server(svr_socket);
-
-
-    return rc;
-}
-
 /*
  * stop_server(svr_socket)
  *      svr_socket: The socket that was created in the boot_server()
@@ -168,85 +116,6 @@ int start_server(char *ifaces, int port, int is_threaded){
  */
 int stop_server(int svr_socket){
     return close(svr_socket);
-}
-
-
-/*
- * process_cli_requests(svr_socket)
- *      svr_socket:  The server socket that was obtained from boot_server()
- *   
- *  This function handles managing client connections.  It does this using
- *  the following logic
- * 
- *      1.  Starts a while(1) loop:
- *  
- *          a. Calls accept() to wait for a client connection. Recall that 
- *             the accept() function returns another socket specifically
- *             bound to a client connection. 
- *          b. Calls exec_client_requests() to handle executing commands
- *             sent by the client. It will use the socket returned from
- *             accept().
- *          c. Loops back to the top (step 2) to accept connecting another
- *             client.  
- * 
- *          note that the exec_client_requests() return code should be
- *          negative if the client requested the server to stop by sending
- *          the `stop-server` command.  If this is the case step 2b breaks
- *          out of the while(1) loop. 
- * 
- *      2.  After we exit the loop, we need to cleanup.  Dont forget to 
- *          free the buffer you allocated in step #1.  Then call stop_server()
- *          to close the server socket. 
- * 
- *  Returns:
- * 
- *      OK_EXIT:  When the client sends the `stop-server` command this function
- *                should return OK_EXIT. 
- * 
- *      ERR_RDSH_COMMUNICATION:  This error code terminates the loop and is
- *                returned from this function in the case of the accept() 
- *                function failing. 
- * 
- *      OTHERS:   See exec_client_requests() for return codes.  Note that positive
- *                values will keep the loop running to accept additional client
- *                connections, and negative values terminate the server. 
- * 
- */
-int process_cli_requests(int svr_socket){
-    int cli_socket;
-    int rc = OK;
-    struct sockaddr_in client_addr;
-
-    while(1)
-    {
-        // TODO use the accept syscall to create cli_socket 
-        // and then exec_client_requests(cli_socket)
-
-        cli_socket = accept(svr_socket, (struct sockaddr *) &client_addr, sizeof(struct sockaddr_in));
-
-        if (cli_socket == -1)
-        {
-            perror("accept");
-            rc = ERR_RDSH_COMMUNICATION;
-            break;
-        }
-        
-        // For debugging. Remove later.
-        printf("Accepted connection from client.\n");
-        
-        // Call exec_client_requests to process commands from the client.
-        rc = exec_client_requests(cli_socket);
-
-        if (rc == OK_EXIT)
-        {
-            printf("Stop server command. Stopping the server.\n");
-            stop_server(cli_socket);
-            break;
-        }
-    }
-
-    stop_server(cli_socket);
-    return rc;
 }
 
 int build_cmd_list(char *cmd_line, command_list_t *clist)
@@ -299,184 +168,6 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         token = strtok(NULL, PIPE_STRING);
     }
 
-    return OK;
-}
-
-/*
- * exec_client_requests(cli_socket)
- *      cli_socket:  The server-side socket that is connected to the client
- *   
- *  This function handles accepting remote client commands. The function will
- *  loop and continue to accept and execute client commands.  There are 2 ways
- *  that this ongoing loop accepting client commands ends:
- * 
- *      1.  When the client executes the `exit` command, this function returns
- *          to process_cli_requests() so that we can accept another client
- *          connection. 
- *      2.  When the client executes the `stop-server` command this function
- *          returns to process_cli_requests() with a return code of OK_EXIT
- *          indicating that the server should stop. 
- * 
- *  Note that this function largely follows the implementation of the
- *  exec_local_cmd_loop() function that you implemented in the last 
- *  shell program deliverable. The main difference is that the command will
- *  arrive over the recv() socket call rather than reading a string from the
- *  keyboard. 
- * 
- *  This function also must send the EOF character after a command is
- *  successfully executed to let the client know that the output from the
- *  command it sent is finished.  Use the send_message_eof() to accomplish 
- *  this. 
- * 
- *  Of final note, this function must allocate a buffer for storage to 
- *  store the data received by the client. For example:
- *     io_buff = malloc(RDSH_COMM_BUFF_SZ);
- *  And since it is allocating storage, it must also properly clean it up
- *  prior to exiting.
- * 
- *  Returns:
- * 
- *      OK:       The client sent the `exit` command.  Get ready to connect
- *                another client. 
- *      OK_EXIT:  The client sent `stop-server` command to terminate the server
- * 
- *      ERR_RDSH_COMMUNICATION:  A catch all for any socket() related send
- *                or receive errors. 
- */
-int exec_client_requests(int cli_socket) {
-    int io_size;
-    command_list_t cmd_list;
-    int rc;
-    int cmd_rc;
-    int last_rc;
-    char *io_buff;
-
-    io_buff = malloc(RDSH_COMM_BUFF_SZ);
-    if (io_buff == NULL){
-        return ERR_RDSH_SERVER;
-    }
-
-    // Variable to store how many bytes been received so far.
-    int recv_total_size = 0;
-    memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
-
-    while(1) {
-        // TODO use recv() syscall to get input
-        io_size = recv(cli_socket, io_buff + recv_total_size, RDSH_COMM_BUFF_SZ - recv_total_size, 0);
-
-        if (io_size == -1)
-        {
-            perror("read error");
-            free(io_buff);
-            return ERR_RDSH_COMMUNICATION;
-        }
-
-        if (io_size == 0)
-        {
-            break;
-        }
-        
-        recv_total_size += io_size;
-
-        // If we didn't hit the null termination, 
-        // check if we hit the max buff size, 
-        // else continue adding the command to the io_buff.
-        if (io_buff[recv_total_size - 1] != RDSH_EOF_CHAR)
-        {
-            if (recv_total_size >= RDSH_COMM_BUFF_SZ)
-            {
-                printf("Buffer overflow\n");
-                free(io_buff);
-                return ERR_RDSH_COMMUNICATION;
-            }
-            continue;            
-        }
-        
-        // io_buff now holds complete command.
-        if (strcmp(io_buff, EXIT_CMD) == 0)
-        {
-            send_message_string(cli_socket, RCMD_MSG_CLIENT_EXITED);
-            send_message_eof(cli_socket);
-            free(io_buff);
-            return OK;
-        }
-
-        if (strcmp(io_buff, STOP_SERVER_CMD) == 0)
-        {
-            send_message_string(cli_socket, RCMD_MSG_SVR_STOP_REQ);
-            send_message_eof(cli_socket);
-            free(io_buff);
-            return OK;
-        }
-
-        if (strncmp(io_buff, "cd", 2) == 0 && (io_buff[2] == '\0' || io_buff[2] == ' '))
-        {
-            strtok(io_buff, " ");
-            char* arg = strtok(NULL, " ");
-
-            // do nothing if no args passed for cd.
-            if (arg == NULL)
-            {
-                recv_total_size = 0;
-                memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
-                continue;
-            } else
-            {
-                // cd can only handle one argument. So, check if there is more than one argument.
-                char* extraArgs = strtok(NULL, " ");
-
-                if (extraArgs != NULL)
-                {
-                    printf("cd: error too many arguments!");
-                    free(io_buff);
-                    return ERR_TOO_MANY_COMMANDS;
-                }
-                
-                if (chdir(arg) != 0)
-                {
-                    printf(CMD_ERR_EXECUTE);
-                    recv_total_size = 0;
-                    memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
-                    continue;
-                }
-            }
-            recv_total_size = 0;
-            memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
-            continue;
-        }
-
-        // TODO build up a cmd_list
-        rc = build_cmd_list(io_buff, &cmd_list);
-
-        if (rc != OK)
-        {
-            send_message_string(cli_socket, "Error parsing command");
-            send_message_eof(cli_socket);
-        } else
-        {
-            // TODO rsh_execute_pipeline to run your cmd_list
-            last_rc = rsh_execute_pipeline(cli_socket, &cmd_list);
-
-            // TODO send appropriate respones with send_message_string
-            char response[128];
-            snprintf(response, sizeof(response), "Command executed with return code: %d", last_rc);
-            
-            // Send the response back to the client.
-            send_message_string(cli_socket, response);
-
-            // TODO send_message_eof when done
-            send_message_eof(cli_socket);
-            
-            // Free resources allocated for the command list.
-            free_cmd_list(&cmd_list);
-        }
-
-        // Reset for next command.
-        recv_total_size = 0;
-        memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
-    }
-    
-    free(io_buff);
     return OK;
 }
 
@@ -676,6 +367,312 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
     }
     return exit_code;
 }
+
+
+/*
+ * exec_client_requests(cli_socket)
+ *      cli_socket:  The server-side socket that is connected to the client
+ *   
+ *  This function handles accepting remote client commands. The function will
+ *  loop and continue to accept and execute client commands.  There are 2 ways
+ *  that this ongoing loop accepting client commands ends:
+ * 
+ *      1.  When the client executes the `exit` command, this function returns
+ *          to process_cli_requests() so that we can accept another client
+ *          connection. 
+ *      2.  When the client executes the `stop-server` command this function
+ *          returns to process_cli_requests() with a return code of OK_EXIT
+ *          indicating that the server should stop. 
+ * 
+ *  Note that this function largely follows the implementation of the
+ *  exec_local_cmd_loop() function that you implemented in the last 
+ *  shell program deliverable. The main difference is that the command will
+ *  arrive over the recv() socket call rather than reading a string from the
+ *  keyboard. 
+ * 
+ *  This function also must send the EOF character after a command is
+ *  successfully executed to let the client know that the output from the
+ *  command it sent is finished.  Use the send_message_eof() to accomplish 
+ *  this. 
+ * 
+ *  Of final note, this function must allocate a buffer for storage to 
+ *  store the data received by the client. For example:
+ *     io_buff = malloc(RDSH_COMM_BUFF_SZ);
+ *  And since it is allocating storage, it must also properly clean it up
+ *  prior to exiting.
+ * 
+ *  Returns:
+ * 
+ *      OK:       The client sent the `exit` command.  Get ready to connect
+ *                another client. 
+ *      OK_EXIT:  The client sent `stop-server` command to terminate the server
+ * 
+ *      ERR_RDSH_COMMUNICATION:  A catch all for any socket() related send
+ *                or receive errors. 
+ */
+int exec_client_requests(int cli_socket) {
+    int io_size;
+    command_list_t cmd_list;
+    int rc;
+    int cmd_rc;
+    int last_rc;
+    char *io_buff;
+
+    io_buff = malloc(RDSH_COMM_BUFF_SZ);
+    if (io_buff == NULL){
+        return ERR_RDSH_SERVER;
+    }
+
+    // Variable to store how many bytes been received so far.
+    int recv_total_size = 0;
+    memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+
+    while(1) {
+        // TODO use recv() syscall to get input
+        io_size = recv(cli_socket, io_buff + recv_total_size, RDSH_COMM_BUFF_SZ - recv_total_size, 0);
+
+        if (io_size == -1)
+        {
+            perror("server read error");
+            free(io_buff);
+            return ERR_RDSH_COMMUNICATION;
+        }
+
+        if (io_size == 0)
+        {
+            break;
+        }
+        
+        recv_total_size += io_size;
+
+        // If we didn't hit the null termination, 
+        // check if we hit the max buff size, 
+        // else continue adding the command to the io_buff.
+        if (io_buff[recv_total_size - 1] != RDSH_EOF_CHAR)
+        {
+            if (recv_total_size >= RDSH_COMM_BUFF_SZ)
+            {
+                printf("Buffer overflow\n");
+                free(io_buff);
+                return ERR_RDSH_COMMUNICATION;
+            }
+            continue;            
+        }
+        
+        // io_buff now holds complete command.
+        if (strcmp(io_buff, EXIT_CMD) == 0)
+        {
+            send_message_string(cli_socket, RCMD_MSG_CLIENT_EXITED);
+            send_message_eof(cli_socket);
+            free(io_buff);
+            return OK;
+        }
+
+        if (strcmp(io_buff, STOP_SERVER_CMD) == 0)
+        {
+            send_message_string(cli_socket, RCMD_MSG_SVR_STOP_REQ);
+            send_message_eof(cli_socket);
+            free(io_buff);
+            return OK;
+        }
+
+        if (strncmp(io_buff, "cd", 2) == 0 && (io_buff[2] == '\0' || io_buff[2] == ' '))
+        {
+            strtok(io_buff, " ");
+            char* arg = strtok(NULL, " ");
+
+            // do nothing if no args passed for cd.
+            if (arg == NULL)
+            {
+                recv_total_size = 0;
+                memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+                continue;
+            } else
+            {
+                // cd can only handle one argument. So, check if there is more than one argument.
+                char* extraArgs = strtok(NULL, " ");
+
+                if (extraArgs != NULL)
+                {
+                    printf("cd: error too many arguments!");
+                    free(io_buff);
+                    return ERR_TOO_MANY_COMMANDS;
+                }
+                
+                if (chdir(arg) != 0)
+                {
+                    printf(CMD_ERR_EXECUTE);
+                    recv_total_size = 0;
+                    memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+                    continue;
+                }
+            }
+            recv_total_size = 0;
+            memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+            continue;
+        }
+
+        // TODO build up a cmd_list
+        rc = build_cmd_list(io_buff, &cmd_list);
+
+        if (rc != OK)
+        {
+            send_message_string(cli_socket, "Error parsing command");
+            send_message_eof(cli_socket);
+        } else
+        {
+            // TODO rsh_execute_pipeline to run your cmd_list
+            last_rc = rsh_execute_pipeline(cli_socket, &cmd_list);
+
+            // TODO send appropriate respones with send_message_string
+            char response[128];
+            snprintf(response, sizeof(response), "Command executed with return code: %d", last_rc);
+            
+            // Send the response back to the client.
+            send_message_string(cli_socket, response);
+
+            // TODO send_message_eof when done
+            send_message_eof(cli_socket);
+            
+            // Free resources allocated for the command list.
+            free_cmd_list(&cmd_list);
+        }
+
+        // Reset for next command.
+        recv_total_size = 0;
+        memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+    }
+    
+    free(io_buff);
+    return OK;
+}
+
+/*
+ * process_cli_requests(svr_socket)
+ *      svr_socket:  The server socket that was obtained from boot_server()
+ *   
+ *  This function handles managing client connections.  It does this using
+ *  the following logic
+ * 
+ *      1.  Starts a while(1) loop:
+ *  
+ *          a. Calls accept() to wait for a client connection. Recall that 
+ *             the accept() function returns another socket specifically
+ *             bound to a client connection. 
+ *          b. Calls exec_client_requests() to handle executing commands
+ *             sent by the client. It will use the socket returned from
+ *             accept().
+ *          c. Loops back to the top (step 2) to accept connecting another
+ *             client.  
+ * 
+ *          note that the exec_client_requests() return code should be
+ *          negative if the client requested the server to stop by sending
+ *          the `stop-server` command.  If this is the case step 2b breaks
+ *          out of the while(1) loop. 
+ * 
+ *      2.  After we exit the loop, we need to cleanup.  Dont forget to 
+ *          free the buffer you allocated in step #1.  Then call stop_server()
+ *          to close the server socket. 
+ * 
+ *  Returns:
+ * 
+ *      OK_EXIT:  When the client sends the `stop-server` command this function
+ *                should return OK_EXIT. 
+ * 
+ *      ERR_RDSH_COMMUNICATION:  This error code terminates the loop and is
+ *                returned from this function in the case of the accept() 
+ *                function failing. 
+ * 
+ *      OTHERS:   See exec_client_requests() for return codes.  Note that positive
+ *                values will keep the loop running to accept additional client
+ *                connections, and negative values terminate the server. 
+ * 
+ */
+int process_cli_requests(int svr_socket){
+    int cli_socket;
+    int rc = OK;
+    struct sockaddr_in client_addr;
+
+    while(1)
+    {
+        // TODO use the accept syscall to create cli_socket 
+        // and then exec_client_requests(cli_socket)
+
+        cli_socket = accept(svr_socket, (struct sockaddr *) &client_addr, sizeof(struct sockaddr_in));
+
+        if (cli_socket == -1)
+        {
+            perror("accept");
+            rc = ERR_RDSH_COMMUNICATION;
+            break;
+        }
+        
+        // For debugging. Remove later.
+        printf("Accepted connection from client.\n");
+        
+        // Call exec_client_requests to process commands from the client.
+        rc = exec_client_requests(cli_socket);
+
+        if (rc == OK_EXIT)
+        {
+            printf("Stop server command. Stopping the server.\n");
+            stop_server(cli_socket);
+            break;
+        }
+    }
+
+    stop_server(cli_socket);
+    return rc;
+}
+
+/*
+ * start_server(ifaces, port, is_threaded)
+ *      ifaces:  a string in ip address format, indicating the interface
+ *              where the server will bind.  In almost all cases it will
+ *              be the default "0.0.0.0" which binds to all interfaces.
+ *              note the constant RDSH_DEF_SVR_INTFACE in rshlib.h
+ * 
+ *      port:   The port the server will use.  Note the constant 
+ *              RDSH_DEF_PORT which is 1234 in rshlib.h.  If you are using
+ *              tux you may need to change this to your own default, or even
+ *              better use the command line override -s implemented in dsh_cli.c
+ *              For example ./dsh -s 0.0.0.0:5678 where 5678 is the new port  
+ * 
+ *      is_threded:  Used for extra credit to indicate the server should implement
+ *                   per thread connections for clients  
+ * 
+ *      This function basically runs the server by: 
+ *          1. Booting up the server
+ *          2. Processing client requests until the client requests the
+ *             server to stop by running the `stop-server` command
+ *          3. Stopping the server. 
+ * 
+ *      This function is fully implemented for you and should not require
+ *      any changes for basic functionality.  
+ * 
+ *      IF YOU IMPLEMENT THE MULTI-THREADED SERVER FOR EXTRA CREDIT YOU NEED
+ *      TO DO SOMETHING WITH THE is_threaded ARGUMENT HOWEVER.  
+ */
+int start_server(char *ifaces, int port, int is_threaded){
+    int svr_socket;
+    int rc;
+
+    //TODO:  If you are implementing the extra credit, please add logic
+    //       to keep track of is_threaded to handle this feature
+
+    svr_socket = boot_server(ifaces, port);
+    if (svr_socket < 0){
+        int err_code = svr_socket;  //server socket will carry error code
+        return err_code;
+    }
+
+    rc = process_cli_requests(svr_socket);
+
+    stop_server(svr_socket);
+
+    return rc;
+}
+
 
 /**************   OPTIONAL STUFF  ***************/
 /****
