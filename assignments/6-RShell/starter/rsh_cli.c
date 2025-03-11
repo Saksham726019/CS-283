@@ -12,7 +12,102 @@
 #include "rshlib.h"
 
 
+/*
+ * client_cleanup(int cli_socket, char *cmd_buff, char *rsp_buff, int rc)
+ *      cli_socket:   The client socket
+ *      cmd_buff:     The buffer that will hold commands to send to server
+ *      rsp_buff:     The buffer that will hld server responses
+ * 
+ *   This function does the following: 
+ *      1. If cli_socket > 0 it calls close(cli_socket) to close the socket
+ *      2. It calls free() on cmd_buff and rsp_buff
+ *      3. It returns the value passed as rc
+ *  
+ *   Note this function is intended to be helper to manage exit conditions
+ *   from the exec_remote_cmd_loop() function given there are several
+ *   cleanup steps.  We provide it to you fully implemented as a helper.
+ *   You do not have to use it if you want to develop an alternative
+ *   strategy for cleaning things up in your exec_remote_cmd_loop()
+ *   implementation. 
+ * 
+ *   returns:
+ *          rc:   This function just returns the value passed as the 
+ *                rc parameter back to the caller.  This way the caller
+ *                can just write return client_cleanup(...)
+ *      
+ */
+int client_cleanup(int cli_socket, char *cmd_buff, char *rsp_buff, int rc){
+    //If a valid socket number close it.
+    if(cli_socket > 0){
+        close(cli_socket);
+    }
 
+    //Free up the buffers 
+    free(cmd_buff);
+    free(rsp_buff);
+
+    //Echo the return value that was passed as a parameter
+    return rc;
+}
+
+/*
+ * start_client(server_ip, port)
+ *      server_ip:  a string in ip address format, indicating the servers IP
+ *                  address.  Note 127.0.0.1 is the default meaning the server
+ *                  is running on the same machine as the client
+ *              
+ *      port:   The port the server will use.  Note the constant 
+ *              RDSH_DEF_PORT which is 1234 in rshlib.h.  If you are using
+ *              tux you may need to change this to your own default, or even
+ *              better use the command line override -c implemented in dsh_cli.c
+ *              For example ./dsh -c 10.50.241.18:5678 where 5678 is the new port
+ *              number and the server address is 10.50.241.18    
+ * 
+ *      This function basically runs the client by: 
+ *          1. Creating the client socket via socket()
+ *          2. Calling connect()
+ *          3. Returning the client socket after connecting to the server
+ * 
+ *   returns:
+ *          client_socket:      The file descriptor fd of the client socket
+ *          ERR_RDSH_CLIENT:    If socket() or connect() fail
+ * 
+ */
+int start_client(char *server_ip, int port){
+    struct sockaddr_in addr;
+    int cli_socket;
+    int ret;
+
+    // TODO set up cli_socket
+    cli_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (cli_socket == -1)
+    {
+        perror("socket");
+        return ERR_RDSH_COMMUNICATION;
+    }
+
+    // Connect socket to socket address.
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(server_ip);
+
+    // Connect to server.
+    ret = connect(cli_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+
+    if (ret == -1)
+    {
+        fprintf(stderr, "The server is down.\n");
+        close(cli_socket);
+        return ERR_RDSH_CLIENT;
+    }
+
+    // For debugging. Remove later.
+    printf("Connected to server at %s:%d\n", server_ip, port);
+    
+    return cli_socket;
+}
 
 /*
  * exec_remote_cmd_loop(server_ip, port)
@@ -92,11 +187,23 @@
  */
 int exec_remote_cmd_loop(char *address, int port)
 {
-    char *cmd_buff;
-    char *rsp_buff;
+    char *cmd_buff = malloc(SH_CMD_MAX);
+    if (cmd_buff == NULL)
+    {
+        ERR_MEMORY;
+    }
+    
+    char *rsp_buff = malloc(RDSH_COMM_BUFF_SZ);
+    if (rsp_buff == NULL)
+    {
+        free(cmd_buff);
+        return ERR_MEMORY;
+    }
+    
     int cli_socket;
     ssize_t io_size;
     int is_eof;
+    int ret;
 
     // TODO set up cmd and response buffs
 
@@ -109,112 +216,72 @@ int exec_remote_cmd_loop(char *address, int port)
     while (1) 
     {
         // TODO print prompt
+        printf(SH_PROMPT);
 
         // TODO fgets input
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
+        {
+            printf("\n");
+            break;
+        }
+
+        // remove the trailing \n from cmd_buff
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
+
+        // If not user command given, continue the while loop.
+        if (strlen(cmd_buff) == 0)
+        {
+            printf(CMD_WARN_NO_CMD);
+            continue;
+        }
 
         // TODO send() over cli_socket
+        ret = send(cli_socket, cmd_buff, strlen(cmd_buff) + 1, 0);
+
+        if (ret == -1)
+        {
+            perror("client send error");
+            return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+        }
 
         // TODO recv all the results
+        int recv_total_size = 0;
+        memset(rsp_buff, 0, RDSH_COMM_BUFF_SZ);
+
+        while (1)
+        {
+            io_size = recv(cli_socket, rsp_buff + recv_total_size, RDSH_COMM_BUFF_SZ - recv_total_size, 0);
+
+            if (io_size == -1)
+            {
+                perror("client read error");
+                return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+            } else if (io_size == 0)
+            {
+                break;
+            }
+            recv_total_size += io_size;
+
+            // If we didn't hit the null termination, continue adding to the buff.
+            if (rsp_buff[recv_total_size - 1] != RDSH_EOF_CHAR)
+            {
+                continue;
+            } else
+            {
+                rsp_buff[recv_total_size - 1] = '\0';
+                break;
+            }
+        }
+        
+        // Print the output from server.
+        printf("%s\n", rsp_buff);
 
         // TODO break on exit command
+        if (strcmp(cmd_buff, EXIT_CMD) == 0 || strcmp(cmd_buff, STOP_SERVER_CMD) == 0)
+        {
+            break;
+        }
     }
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
-}
-
-/*
- * start_client(server_ip, port)
- *      server_ip:  a string in ip address format, indicating the servers IP
- *                  address.  Note 127.0.0.1 is the default meaning the server
- *                  is running on the same machine as the client
- *              
- *      port:   The port the server will use.  Note the constant 
- *              RDSH_DEF_PORT which is 1234 in rshlib.h.  If you are using
- *              tux you may need to change this to your own default, or even
- *              better use the command line override -c implemented in dsh_cli.c
- *              For example ./dsh -c 10.50.241.18:5678 where 5678 is the new port
- *              number and the server address is 10.50.241.18    
- * 
- *      This function basically runs the client by: 
- *          1. Creating the client socket via socket()
- *          2. Calling connect()
- *          3. Returning the client socket after connecting to the server
- * 
- *   returns:
- *          client_socket:      The file descriptor fd of the client socket
- *          ERR_RDSH_CLIENT:    If socket() or connect() fail
- * 
- */
-int start_client(char *server_ip, int port){
-    struct sockaddr_in addr;
-    int cli_socket;
-    int ret;
-
-    // TODO set up cli_socket
-    cli_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (cli_socket == -1)
-    {
-        perror("socket");
-        return ERR_RDSH_COMMUNICATION;
-    }
-
-    // Connect socket to socket address.
-    memset(&addr, 0, sizeof(struct sockaddr_in));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = inet_addr(server_ip);
-
-    // Connect to server.
-    ret = connect(cli_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
-
-    if (ret == -1)
-    {
-        fprintf(stderr, "The server is down.\n");
-        close(cli_socket);
-        return ERR_RDSH_CLIENT;
-    }
-
-    // For debugging. Remove later.
-    printf("Connected to server at %s:%d\n", server_ip, port);
-    
-    return cli_socket;
-}
-
-/*
- * client_cleanup(int cli_socket, char *cmd_buff, char *rsp_buff, int rc)
- *      cli_socket:   The client socket
- *      cmd_buff:     The buffer that will hold commands to send to server
- *      rsp_buff:     The buffer that will hld server responses
- * 
- *   This function does the following: 
- *      1. If cli_socket > 0 it calls close(cli_socket) to close the socket
- *      2. It calls free() on cmd_buff and rsp_buff
- *      3. It returns the value passed as rc
- *  
- *   Note this function is intended to be helper to manage exit conditions
- *   from the exec_remote_cmd_loop() function given there are several
- *   cleanup steps.  We provide it to you fully implemented as a helper.
- *   You do not have to use it if you want to develop an alternative
- *   strategy for cleaning things up in your exec_remote_cmd_loop()
- *   implementation. 
- * 
- *   returns:
- *          rc:   This function just returns the value passed as the 
- *                rc parameter back to the caller.  This way the caller
- *                can just write return client_cleanup(...)
- *      
- */
-int client_cleanup(int cli_socket, char *cmd_buff, char *rsp_buff, int rc){
-    //If a valid socket number close it.
-    if(cli_socket > 0){
-        close(cli_socket);
-    }
-
-    //Free up the buffers 
-    free(cmd_buff);
-    free(rsp_buff);
-
-    //Echo the return value that was passed as a parameter
-    return rc;
 }
