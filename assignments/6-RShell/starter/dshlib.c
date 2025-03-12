@@ -57,7 +57,6 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
                 free(cmd_buff->_cmd_buffer);
                 return WARN_NO_CMDS;    
             }
-            
         }
 
         if (*cmd_line == QUOTES)
@@ -356,6 +355,7 @@ int exec_local_cmd_loop()
         if (rc == OK)
         {
             execute_pipeline(&clist);
+            free_cmd_list(&clist);
 
         } else
         {
@@ -370,10 +370,33 @@ int exec_local_cmd_loop()
                 printf(CMD_WARN_NO_CMD);
             }
             
+            free_cmd_list(&clist);
             continue;
         }
     }
 
     free(cmd_buff);
+    return OK;
+}
+
+int free_cmd_buff(cmd_buff_t *cmd_buff)
+{
+    if (cmd_buff->_cmd_buffer != NULL)
+    {
+        free(cmd_buff->_cmd_buffer);
+    }
+    
+    cmd_buff->argc = 0;
+    return OK;
+}
+
+int free_cmd_list(command_list_t *cmd_lst)
+{
+    for (int i = 0; i < cmd_lst->num; i++)
+    {
+        free_cmd_buff(&cmd_lst->commands[i]);
+    }
+
+    cmd_lst->num = 0;
     return OK;
 }
