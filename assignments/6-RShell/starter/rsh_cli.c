@@ -190,7 +190,7 @@ int exec_remote_cmd_loop(char *address, int port)
     char *cmd_buff = malloc(SH_CMD_MAX);
     if (cmd_buff == NULL)
     {
-        ERR_MEMORY;
+        return ERR_MEMORY;
     }
     
     char *rsp_buff = malloc(RDSH_COMM_BUFF_SZ);
@@ -202,7 +202,6 @@ int exec_remote_cmd_loop(char *address, int port)
     
     int cli_socket;
     ssize_t io_size;
-    int is_eof;
     int ret;
 
     // TODO set up cmd and response buffs

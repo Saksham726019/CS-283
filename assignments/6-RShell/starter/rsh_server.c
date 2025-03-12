@@ -64,7 +64,7 @@ int boot_server(char *ifaces, int port){
 
     if (svr_socket == -1)
     {
-        perror("socket");
+        perror("server socket error");
         close(svr_socket);
         return ERR_RDSH_COMMUNICATION;
     }
@@ -82,7 +82,7 @@ int boot_server(char *ifaces, int port){
 
     if (ret == -1)
     {
-        perror("accept");
+        perror("server binding error");
         close(svr_socket);
         return ERR_RDSH_COMMUNICATION;
     }
@@ -116,59 +116,6 @@ int boot_server(char *ifaces, int port){
  */
 int stop_server(int svr_socket){
     return close(svr_socket);
-}
-
-int build_cmd_list(char *cmd_line, command_list_t *clist)
-{
-    // Initialize clist with 0 using memset().
-    memset(clist, 0, sizeof(command_list_t));
-    int rc = 0;
-
-    // Split the cmd_line.
-    char* token = strtok(cmd_line, PIPE_STRING);
-
-    while (token != NULL) 
-    {
-        // Check if the total number of commands exceed CMD_MAX.
-        if (clist->num >= CMD_MAX)
-        {
-            return ERR_TOO_MANY_COMMANDS;
-        }
-        
-        // Remove leading whitespaces.
-        while (*token == SPACE_CHAR)
-        {
-            token++;
-        }
-
-        // Remove trailing spaces.
-        int token_len = strlen(token);
-        while (token_len > 0 && token[token_len - 1] == SPACE_CHAR)
-        {
-            token[token_len - 1] = '\0';
-            token_len--;
-        }
-
-        // Check if any command's length is too big.
-        if (strlen(token) >= EXE_MAX)
-        {
-            return ERR_CMD_OR_ARGS_TOO_BIG;
-        }
-
-        rc = build_cmd_buff(token, &clist->commands[clist->num]);
-
-        if (rc != OK)
-        {
-            return rc;
-        }
-
-        clist->num++;
-
-        // Move to the next token.
-        token = strtok(NULL, PIPE_STRING);
-    }
-
-    return OK;
 }
 
 /*
@@ -269,7 +216,7 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
     int pipes[clist->num - 1][2];  // Array of pipes
     pid_t pids[clist->num];
     int  pids_st[clist->num];         // Array to store process IDs
-    Built_In_Cmds bi_cmd;
+    // Built_In_Cmds bi_cmd;
     int exit_code;
     int prev_pipe_fd = -1;
 
@@ -414,7 +361,7 @@ int exec_client_requests(int cli_socket) {
     int io_size;
     command_list_t cmd_list;
     int rc;
-    int cmd_rc;
+    // int cmd_rc;
     int last_rc;
     char *io_buff;
 
@@ -473,7 +420,7 @@ int exec_client_requests(int cli_socket) {
             send_message_string(cli_socket, RCMD_MSG_SVR_STOP_REQ);
             send_message_eof(cli_socket);
             free(io_buff);
-            return OK;
+            return OK_EXIT;
         }
 
         if (strncmp(io_buff, "cd", 2) == 0 && (io_buff[2] == '\0' || io_buff[2] == ' '))
@@ -592,13 +539,14 @@ int process_cli_requests(int svr_socket){
     int cli_socket;
     int rc = OK;
     struct sockaddr_in client_addr;
+    socklen_t client_socket_len = sizeof(client_addr);
 
     while(1)
     {
         // TODO use the accept syscall to create cli_socket 
         // and then exec_client_requests(cli_socket)
 
-        cli_socket = accept(svr_socket, (struct sockaddr *) &client_addr, sizeof(struct sockaddr_in));
+        cli_socket = accept(svr_socket, (struct sockaddr *) &client_addr, &client_socket_len);
 
         if (cli_socket == -1)
         {
@@ -616,12 +564,10 @@ int process_cli_requests(int svr_socket){
         if (rc == OK_EXIT)
         {
             printf("Stop server command. Stopping the server.\n");
-            stop_server(cli_socket);
             break;
         }
     }
 
-    stop_server(cli_socket);
     return rc;
 }
 
@@ -653,7 +599,8 @@ int process_cli_requests(int svr_socket){
  *      IF YOU IMPLEMENT THE MULTI-THREADED SERVER FOR EXTRA CREDIT YOU NEED
  *      TO DO SOMETHING WITH THE is_threaded ARGUMENT HOWEVER.  
  */
-int start_server(char *ifaces, int port, int is_threaded){
+int start_server(char *ifaces, int port)
+{
     int svr_socket;
     int rc;
 
