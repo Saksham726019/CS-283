@@ -206,7 +206,7 @@ int exec_remote_cmd_loop(char *address, int port)
 
     // TODO set up cmd and response buffs
 
-    cli_socket = start_client(address,port);
+    cli_socket = start_client(address, port);
     if (cli_socket < 0){
         perror("start client");
         return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_CLIENT);

@@ -395,7 +395,7 @@ int exec_client_requests(int cli_socket) {
         // If we didn't hit the null termination, 
         // check if we hit the max buff size, 
         // else continue adding the command to the io_buff.
-        if (io_buff[recv_total_size - 1] != RDSH_EOF_CHAR)
+        if (io_buff[recv_total_size - 1] != '\0')
         {
             if (recv_total_size >= RDSH_COMM_BUFF_SZ)
             {
@@ -410,7 +410,6 @@ int exec_client_requests(int cli_socket) {
         if (strcmp(io_buff, EXIT_CMD) == 0)
         {
             send_message_string(cli_socket, RCMD_MSG_CLIENT_EXITED);
-            send_message_eof(cli_socket);
             free(io_buff);
             return OK;
         }
@@ -418,7 +417,6 @@ int exec_client_requests(int cli_socket) {
         if (strcmp(io_buff, STOP_SERVER_CMD) == 0)
         {
             send_message_string(cli_socket, RCMD_MSG_SVR_STOP_REQ);
-            send_message_eof(cli_socket);
             free(io_buff);
             return OK_EXIT;
         }
@@ -431,6 +429,7 @@ int exec_client_requests(int cli_socket) {
             // do nothing if no args passed for cd.
             if (arg == NULL)
             {
+                send_message_eof(cli_socket);
                 recv_total_size = 0;
                 memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
                 continue;
@@ -441,14 +440,15 @@ int exec_client_requests(int cli_socket) {
 
                 if (extraArgs != NULL)
                 {
-                    printf("cd: error too many arguments!");
+                    fprintf(stderr, "cd: error too many arguments!\n");
+                    send_message_eof(cli_socket);
                     free(io_buff);
                     return ERR_TOO_MANY_COMMANDS;
                 }
                 
                 if (chdir(arg) != 0)
                 {
-                    printf(CMD_ERR_EXECUTE);
+                    send_message_string(cli_socket, CMD_ERR_EXECUTE);
                     recv_total_size = 0;
                     memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
                     continue;
@@ -465,7 +465,6 @@ int exec_client_requests(int cli_socket) {
         if (rc != OK)
         {
             send_message_string(cli_socket, "Error parsing command");
-            send_message_eof(cli_socket);
         } else
         {
             // TODO rsh_execute_pipeline to run your cmd_list
@@ -477,11 +476,8 @@ int exec_client_requests(int cli_socket) {
             
             // Send the response back to the client.
             send_message_string(cli_socket, response);
-
-            // TODO send_message_eof when done
-            send_message_eof(cli_socket);
             
-            // Free resources allocated for the command list.
+            // Free the command list.
             free_cmd_list(&cmd_list);
         }
 
