@@ -177,3 +177,138 @@ EOF
     [ "$stripped_output" = "$expected_output" ]
     [ "$status" -eq 0 ]
 }
+
+@test "Start the server" {
+    # Start the server in the background using &, redirecting output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Kill the server process.
+    pkill -f "./dsh -s -i 0.0.0.0 -p 7890"
+    
+    # Capture and strip whitespace from the server log.
+    output=$(cat server.log)
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+    
+    # Construct the expected output without whitespace.
+    expected_output="socketservermode:addr:0.0.0.0:7890->Single-ThreadedModeServerbootedsuccessfullyon0.0.0.0:7890"
+    
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+    
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Start server, start client, stop server" {
+    # Start the server in the background and log output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Wait until client gets the output from server.
+    sleep 2
+
+    run ./dsh -c -i 0.0.0.0 -p 7890 <<EOF
+stop-server
+EOF
+    
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="socketclientmode:addr:0.0.0.0:7890Connectedtoserverat0.0.0.0:7890dsh4>clientrequestedservertostop,stopping...cmdloopreturned0"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Server-Client: pwd gives current working directory" {
+    # Start the server in the background and log output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Wait until client gets the output from server.
+    sleep 2
+
+    run ./dsh -c -i 0.0.0.0 -p 7890 <<EOF
+pwd
+stop-server
+EOF
+    
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="socketclientmode:addr:0.0.0.0:7890Connectedtoserverat0.0.0.0:7890dsh4>$(pwd)Commandexecutedwithreturncode:0dsh4>clientrequestedservertostop,stopping...cmdloopreturned0"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Server-Client: Piping with multiple spaces" {
+    # Start the server in the background and log output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Wait until client gets the output from server.
+    sleep 2
+
+    run ./dsh -c -i 0.0.0.0 -p 7890 <<EOF
+ls  |  wc -l
+stop-server
+EOF
+    
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="socketclientmode:addr:0.0.0.0:7890Connectedtoserverat0.0.0.0:7890dsh4>$(ls  |  wc -l)Commandexecutedwithreturncode:0dsh4>clientrequestedservertostop,stopping...cmdloopreturned0"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Server-Client: Echo quoted and unquoted arguments" {
+    # Start the server in the background and log output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Wait until client gets the output from server.
+    sleep 2
+
+    run ./dsh -c -i 0.0.0.0 -p 7890 <<EOF
+echo Test "Test Multi   word unquoted"   unquoted
+stop-server
+EOF
+    
+    stripped_output=$(echo "$output" | tr -d '\t\n\r\f\v')
+
+    expected_output="socket client mode:  addr:0.0.0.0:7890Connected to server at 0.0.0.0:7890dsh4> Test Test Multi   word unquoted unquotedCommand executed with return code: 0dsh4> client requested server to stop, stopping...cmd loop returned 0"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Server-Client: tr to lowercase" {
+    # Start the server in the background and log output.
+    ./dsh -s -i 0.0.0.0 -p 7890 > server.log 2>&1 &
+
+    # Wait until client gets the output from server.
+    sleep 2
+
+    run ./dsh -c -i 0.0.0.0 -p 7890 <<EOF
+echo "ABCdef" | tr 'A-Z' 'a-z'
+stop-server
+EOF
+    
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    expected_output="socketclientmode:addr:0.0.0.0:7890Connectedtoserverat0.0.0.0:7890dsh4>abcdefCommandexecutedwithreturncode:0dsh4>clientrequestedservertostop,stopping...cmdloopreturned0"
+
+    echo "Captured stdout:"
+    echo "Output: $output"
+    echo "${stripped_output} -> ${expected_output}"
+
+    [ "$stripped_output" = "$expected_output" ]
+}
