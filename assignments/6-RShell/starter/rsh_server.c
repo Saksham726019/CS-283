@@ -102,6 +102,7 @@ int boot_server(char *ifaces, int port){
 
     // For debugging. Remove later.
     printf("Server booted successfully on %s:%d\n", ifaces, port);
+    fflush(stdout);
 
     return svr_socket;
 }
@@ -452,6 +453,9 @@ int exec_client_requests(int cli_socket) {
                     recv_total_size = 0;
                     memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
                     continue;
+                } else
+                {
+                    send_message_eof(cli_socket);
                 }
             }
             recv_total_size = 0;
