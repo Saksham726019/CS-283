@@ -401,6 +401,7 @@ int exec_client_requests(int cli_socket) {
             if (recv_total_size >= RDSH_COMM_BUFF_SZ)
             {
                 printf("Buffer overflow\n");
+                fflush(stdout);
                 free(io_buff);
                 return ERR_RDSH_COMMUNICATION;
             }
@@ -442,6 +443,7 @@ int exec_client_requests(int cli_socket) {
                 if (extraArgs != NULL)
                 {
                     fprintf(stderr, "cd: error too many arguments!\n");
+                    fflush(stdout);
                     send_message_eof(cli_socket);
                     free(io_buff);
                     return ERR_TOO_MANY_COMMANDS;
@@ -557,6 +559,7 @@ int process_cli_requests(int svr_socket){
         
         // For debugging. Remove later.
         printf("Accepted connection from client.\n");
+        fflush(stdout);
         
         // Call exec_client_requests to process commands from the client.
         rc = exec_client_requests(cli_socket);
@@ -564,6 +567,7 @@ int process_cli_requests(int svr_socket){
         if (rc == OK_EXIT)
         {
             printf("Stop server command. Stopping the server.\n");
+            fflush(stdout);
             break;
         }
     }

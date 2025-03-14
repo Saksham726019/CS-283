@@ -98,13 +98,15 @@ int start_client(char *server_ip, int port){
 
     if (ret == -1)
     {
-        fprintf(stderr, "The server is down.\n");
+        printf("The server is down.\n");
+        fflush(stdout);
         close(cli_socket);
         return ERR_RDSH_CLIENT;
     }
 
     // For debugging. Remove later.
     printf("Connected to server at %s:%d\n", server_ip, port);
+    fflush(stdout);
     
     return cli_socket;
 }
@@ -220,7 +222,7 @@ int exec_remote_cmd_loop(char *address, int port)
         // TODO fgets input
         if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
         {
-            printf("\n");
+            //printf("\n");
             break;
         }
 
